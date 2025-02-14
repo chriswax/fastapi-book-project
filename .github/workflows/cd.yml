@@ -9,20 +9,20 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
+      - uses: actions/checkout@v3
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.9"
-
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          python -m venv venv
+          source venv/bin/activate
           pip install -r requirements.txt
-
-      - name: Deploy application
+      - name: Restart FastAPI application
         run: |
-          # Add deployment steps here (e.g., deploy to a server or cloud provider)
-          echo "Deploying application..."
+          pkill -f "uvicorn main:app"
+          nohup uvicorn main:app --host 127.0.0.1 --port 8000 > /dev/null 2>&1 &
+      - name: Reload Nginx
+        run: |
+          sudo systemctl reload nginx
