@@ -17,7 +17,7 @@ jobs:
         run: |
           response=$(curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}" \
             -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
-            -H "Content-Type: application/json")
+            -H "Content-Type: application/json" || { echo 'Curl request failed!'; exit 1; })
           deployment_id=$(echo $response | jq -r '.deploy.id')
           echo "deployment_id=$deployment_id" >> $GITHUB_ENV
           echo "Deployment triggered with ID: $deployment_id"
@@ -29,8 +29,8 @@ jobs:
           while true; do
             status_response=$(curl -X GET "https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys/$deployment_id" \
               -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
-              -H "Content-Type: application/json")
-              echo $status_response
+              -H "Content-Type: application/json" || { echo 'Curl request failed!'; exit 1; })
+            echo $status_response
             status=$(echo $status_response | jq -r '.status')
             echo "Current status: $status"
             if [[ "$status" == "build_failed" || "$status" == "update_failed" || "$status" == "pre_deploy_failed" ]]; then
