@@ -1,4 +1,4 @@
-name: CD Pipeline
+name: Deploy Workflow
 
 on:
   push:
@@ -8,21 +8,24 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v2
+
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v2
         with:
           python-version: "3.9"
+
       - name: Install dependencies
         run: |
           python -m venv venv
           source venv/bin/activate
           pip install -r requirements.txt
-      - name: Restart FastAPI application
+
+      - name: Deploy application
         run: |
-          pkill -f "uvicorn main:app"
-          nohup uvicorn main:app --host 127.0.0.1 --port 8000 > /dev/null 2>&1 &
-      - name: Reload Nginx
-        run: |
-          sudo systemctl reload nginx
+          # Include your deployment commands here
+          # Example: push to your server, Docker container, etc.
+          echo "Deploying to production"
