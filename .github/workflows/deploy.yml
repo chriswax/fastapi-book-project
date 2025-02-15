@@ -1,45 +1,49 @@
-name: Deploy to Render
-
+name: deploy
 on:
   push:
     branches:
       - main
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Trigger Render Deployment
-        id: trigger_deployment
-        run: |
-          response=$(curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}" \
-            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
-            -H "Content-Type: application/json" || { echo 'Curl request failed!'; exit 1; })
-          deployment_id=$(echo $response | jq -r '.deploy.id')
-          echo "deployment_id=$deployment_id" >> $GITHUB_ENV
-          echo "Deployment triggered with ID: $deployment_id"
-
-      - name: Wait for Deployment to Complete
-        run: |
-          deployment_id=${{ env.deployment_id }}
-          echo "Waiting for deployment $deployment_id to complete..."
-          while true; do
-            status_response=$(curl -X GET "https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys/$deployment_id" \
-              -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
-              -H "Content-Type: application/json" || { echo 'Curl request failed!'; exit 1; })
-            echo $status_response
-            status=$(echo $status_response | jq -r '.status')
-            echo "Current status: $status"
-            if [[ "$status" == "build_failed" || "$status" == "update_failed" || "$status" == "pre_deploy_failed" ]]; then
-              echo "Deployment completed with status: $status"
-              exit 1
-            fi
-            if [[ "$status" == "live" ]]; then
-              echo "Deployment completed with status: $status"
-              break
-            fi
-            sleep 10  # Wait for 10 seconds before checking again
-          done
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      # Deploy to server
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{secrets.SERVER_HOST}}
+          key: ${{secrets.SERVER_SSH_KEY}}
+          username: ${{secrets.SERVER_USERNAME}}
+          script: |
+            echo “Starting deployment...”
+            # Create and navigate to project directory
+            mkdir -p chriswax-fastapi-stage12-task
+            cd chriswax-fastapi-stage12-task
+            # Clone the repository into the project directory
+            git clone https://github.com/chriswax/fastapi-book-project.git .
+            # Pull latest changes
+            echo “Pulling latest changes...”
+            git fetch --all
+            git pull origin main
+            # Setup virtual environment
+            echo “Setting up virtual environment...”
+            python3 -m venv venv || exit 1
+            source venv/bin/activate || exit 1
+            #Install fastapi
+            pip install fastapi || exit 1
+            echo “FastAPI installed successfully”
+            # Install dependencies
+            echo “Installing dependencies...”
+            pip install -r requirements.txt || exit 1
+            # Stop existing application if running
+            echo “Stopping existing application...”
+            killall uvicorn || echo “No existing process found”
+            echo “Application stopped successfully”
+            # Start application
+            echo “Starting application...”
+            nohup uvicorn main:app --host 0.0.0.0 --port 8000 > app.log 2>&1 &
+            echo “Application started successfully”
